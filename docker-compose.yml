@@ -1,0 +1,86 @@
+# ShopOps Room: Switch core (official image) + Postgres + our three agents.
+#   cp .env.example .env && ./scripts/gen_env.sh   (or edit .env by hand)
+#   docker compose up -d
+# The `setup` service registers the Telegram bridge and the agents once
+# (idempotent) and writes their keys to the shared `agentkeys` volume.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_OWNER_USER}
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_OWNER_USER}"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  init-db:
+    image: postgres:16-alpine
+    environment:
+      PGPASSWORD: ${DB_OWNER_PASSWORD}
+    entrypoint: >
+      sh -c "
+        psql -h postgres -U ${DB_OWNER_USER} -d postgres -tc \"SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}'\" | grep -q 1 ||
+          psql -h postgres -U ${DB_OWNER_USER} -d postgres -c 'CREATE ROLE \"${DB_USER}\" LOGIN PASSWORD '\\''${DB_PASSWORD}'\\'' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;'
+      "
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  switch:
+    image: ghcr.io/sandbox-quantum/switch-core:${SWITCH_VERSION:-0.31.0}
+    restart: unless-stopped
+    ports:
+      - "${SWITCH_BIND_ADDR:-127.0.0.1}:8000:8000"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_OWNER_USER: ${DB_OWNER_USER}
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      ID_SERVER_NAME: localhost
+      MATRIX_SERVER_NAME: localhost
+      AGENT_REGISTRATION_TOKEN: ${AGENT_REGISTRATION_TOKEN}
+      SECRET_KEYS: ${SECRET_KEYS}
+      GATEWAY_COOKIE_SECURE: "false"
+      GATEWAY_ADMIN_EMAIL: ${GATEWAY_ADMIN_EMAIL}
+      GATEWAY_ADMIN_PASSWORD: ${GATEWAY_ADMIN_PASSWORD}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:8000}
+      TELEMETRY_ENABLED: "false"
+    depends_on:
+      postgres: {condition: service_healthy}
+      init-db: {condition: service_completed_successfully}
+
+  setup:
+    build: .
+    command: ["python", "scripts/setup_switch.py"]
+    env_file: .env
+    environment:
+      SWITCH_URL: http://switch:8000
+      AGENTS_ENV_FILE: /keys/agents.env
+    volumes: [agentkeys:/keys]
+    restart: on-failure
+    depends_on: [switch]
+
+  agents:
+    build: .
+    command: ["python", "-m", "shopops"]
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      SWITCH_URL: http://switch:8000
+      AGENTS_ENV_FILE: /keys/agents.env
+      SHOPOPS_DB: /data/shopops.db
+    volumes: [agentkeys:/keys, shopdata:/data]
+    depends_on:
+      setup: {condition: service_completed_successfully}
+
+volumes:
+  pgdata:
+  agentkeys:
+  shopdata:
