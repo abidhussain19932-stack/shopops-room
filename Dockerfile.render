@@ -1,0 +1,10 @@
+# One container for free hosts: the official switch-core image + our agents.
+# Postgres is external (DATABASE_URL), see render.yaml.
+FROM ghcr.io/sandbox-quantum/switch-core:0.31.0
+WORKDIR /srv/shopops
+RUN uv pip install --system --no-cache httpx "websockets>=14" "openai>=1.40" python-dotenv
+COPY shopops ./shopops
+COPY scripts ./scripts
+COPY data ./data
+ENV PYTHONPATH=/srv/shopops
+CMD ["python", "/srv/shopops/scripts/render_start.py"]

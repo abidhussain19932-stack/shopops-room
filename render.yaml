@@ -1,0 +1,37 @@
+# Render Blueprint: one free web service (switch-core + agents) + one free Postgres.
+# Telegram/Groq/PayPal secrets are asked for in the Render dashboard (sync: false).
+databases:
+  - name: shopops-db
+    plan: free
+    databaseName: switch
+    user: switch_owner
+services:
+  - type: web
+    name: shopops-room
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.render
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: {name: shopops-db, property: connectionString}
+      - key: MASTER_SECRET
+        generateValue: true
+      - key: DB_SSL_MODE
+        value: require
+      - key: SHOPOPS_OPEN_ADDRESSING
+        value: "true"
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: LLM_MODEL
+        value: openai/gpt-oss-120b
+      - key: TELEGRAM_BOT_USERNAME
+        value: AMBshopOpsbot
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
