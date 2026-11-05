@@ -1,0 +1,12 @@
+# Render's free web services sleep after 15 min without traffic; this pings the
+# health URL every 10 minutes so the Telegram agents stay connected.
+name: keepalive
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -fsS --retry 3 --max-time 60 https://shopops-room.onrender.com/health
