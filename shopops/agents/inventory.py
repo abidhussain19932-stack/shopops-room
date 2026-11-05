@@ -38,7 +38,7 @@ class InventoryAgent(ShopAgent):
         if order:
             return await self.on_new_order(msg, order)
         low = t.lower()
-        if m := re.match(r"stock(?:\s+(\w+))?$", low):
+        if m := re.match(r"(?:(?:please\s+)?(?:show|list|check|get)\s+(?:me\s+)?(?:the\s+|all\s+)?)?(?:inventory|stock(?:\s+levels?)?)(?:\s+(?:for\s+)?(?!levels?\b)(\w+))?\s*[.!?]*$", low):
             return self.show_stock(m[1])
         if re.match(r"low(?:\s*stock)?$", low):
             return self.show_low()

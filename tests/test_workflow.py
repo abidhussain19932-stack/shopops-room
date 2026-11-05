@@ -123,3 +123,10 @@ def test_bare_approve_with_two_pending_asks_which(world):
     run(inv.handle(msg("po K102")))
     out = run(inv.handle(msg("approve", addressed=False)))
     assert "which one" in out
+
+
+@pytest.mark.parametrize("text", ["show stock", "stock", "list inventory", "check stock levels"])
+def test_stock_without_sku_lists_everything(world, text):
+    _, inv, _, _ = world
+    out = run(inv.handle(msg(text)))
+    assert out.startswith("Stock:") and "S201" in out
