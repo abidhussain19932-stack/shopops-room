@@ -1,10 +1,7 @@
-# Render Blueprint: one free web service (switch-core + agents) + one free Postgres.
+# Render Blueprint: one free web service (switch-core + agents).
+# Postgres is external (Neon free tier, no card): paste its direct connection string as
+# DATABASE_URL. Render allows only one free Postgres per workspace, hence not defined here.
 # Telegram/Groq/PayPal secrets are asked for in the Render dashboard (sync: false).
-databases:
-  - name: shopops-db
-    plan: free
-    databaseName: switch
-    user: switch_owner
 services:
   - type: web
     name: shopops-room
@@ -14,7 +11,7 @@ services:
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
-        fromDatabase: {name: shopops-db, property: connectionString}
+        sync: false
       - key: MASTER_SECRET
         generateValue: true
       - key: DB_SSL_MODE
