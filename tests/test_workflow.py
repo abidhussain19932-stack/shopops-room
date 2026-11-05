@@ -43,7 +43,8 @@ def world():
 
 
 def run(coro):
-    return asyncio.run(coro)
+    out = asyncio.run(coro)
+    return "\n".join(out) if isinstance(out, list) else out
 
 
 def test_parsers():
@@ -59,7 +60,7 @@ def test_order_reserves_stock_and_drafts_po(world):
     store, inv, ful, _ = world
     before = store.product("S201")["stock"]  # 3
     reply = run(inv.handle(msg("@inventory-agent " + ORDER, sender="sales-agent")))
-    assert "Reserved for O1001" in reply and "@fulfillment-agent" in reply
+    assert "Reserved for O1001" in reply and "@fulfillment-agent please ship O1001" in reply
     assert store.product("S201")["stock"] == before - 2
     assert "APPROVAL A1" in reply and store.pending("po")[0]["payload"]["sku"] == "S201"
 

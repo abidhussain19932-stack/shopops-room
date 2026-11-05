@@ -82,7 +82,7 @@ class InventoryAgent(ShopAgent):
         self.store.log(self.name, f"recorded {order['id']}")
         return await self.reserve(msg.room_id, order["id"])
 
-    async def reserve(self, room_id: str, order_id: str) -> str:
+    async def reserve(self, room_id: str, order_id: str) -> str | list[str]:
         o = self.store.order(order_id)
         if not o:
             return f"I have no order {order_id.upper()}. Sales has to post it first."
@@ -95,7 +95,6 @@ class InventoryAgent(ShopAgent):
                     + "\nSay `po` to restock, then `reserve " + o["id"] + "` again.")
         self.store.log(self.name, f"reserved {o['id']}")
         out = [f"📦 Reserved for {o['id']}:"] + [f"• {l}" for l in lines]
-        out.append("@fulfillment-agent please ship " + o["id"])
         low = [self.store.product(i["sku"]) for i in o["items"]]
         low = [p for p in low if p and p["stock"] <= p["reorder_level"]]
         if low:
@@ -103,7 +102,7 @@ class InventoryAgent(ShopAgent):
                 f"{p['name']} ({p['stock']} left)" for p in low))
             drafted = [self._make_po(room_id, p, None) for p in low]
             out += [d for d in drafted if d]
-        return "\n".join(out)
+        return ["\n".join(out), f"@fulfillment-agent please ship {o['id']}"]
 
     # ----------------------------------------------------- purchase orders
     def _open_po_for(self, sku: str) -> dict | None:

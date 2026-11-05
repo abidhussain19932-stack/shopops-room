@@ -8,11 +8,14 @@ WebSocket, sales-agent addresses each by name, and we wait for both replies.
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
+import tempfile
 import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+os.environ["SHOPOPS_DB"] = str(Path(tempfile.mkdtemp()) / "smoke.db")  # before importing shopops
 
 from shopops.agents import FulfillmentAgent, InventoryAgent, SalesAgent  # noqa: E402
 
@@ -50,10 +53,29 @@ async def main() -> int:
                     if name not in seen:
                         print(f"reply from {name}: {body}")
                     seen.add(name)
+    ok = seen == want
+
+    # Day-2 workflow over the real server: sales posts a paid order, inventory
+    # reserves stock and drafts a PO, fulfilment ships. (Owner approvals need a
+    # human sender, so those are covered by tests/test_workflow.py.)
+    from shopops.store import get_store
+    store = get_store()
+    oid = f"O{int(time.time()) % 100000}"
+    await sales.switch.post(room_id, f"@inventory-agent ORDER {oid} | customer: Smoke Test | "
+                            f"items: S201 x2 | total: 178.00 USD | paypal: X | capture: Y")
+    flow = {"reserved": False, "po": False, "shipped": False}
+    deadline = time.time() + 40
+    while time.time() < deadline and not all(flow.values()):
+        await asyncio.sleep(1.5)
+        o = store.order(oid)
+        flow["reserved"] = bool(o and o["status"] in ("reserved", "shipped"))
+        flow["po"] = bool(store.pending("po"))
+        flow["shipped"] = bool(o and o["status"] == "shipped")
+    print("workflow:", flow)
+    ok = ok and all(flow.values())
     for t in tasks:
         t.cancel()
-    ok = seen == want
-    print("SMOKE TEST", "PASSED" if ok else f"FAILED (got {seen})")
+    print("SMOKE TEST", "PASSED" if ok else f"FAILED (got {seen}, flow {flow})")
     return 0 if ok else 1
 
 

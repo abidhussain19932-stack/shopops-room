@@ -62,7 +62,7 @@ class ShopAgent:
         return (msg.sender_name not in AGENTS and msg.sender_kind != "platform"
                 and msg.sender_kind != "agent")
 
-    async def handle(self, msg: Message) -> str | None:
+    async def handle(self, msg: Message) -> str | list[str] | None:
         text = strip_mentions(msg.body)
         decision = parse_decision(text)
         if decision and self.is_owner(msg):
@@ -118,8 +118,11 @@ class ShopAgent:
     async def _on_message(self, sw: SwitchAgent, msg: Message) -> None:
         log.info("[%s] <- %s: %s", self.name, msg.sender_name, msg.body[:120])
         reply = await self.handle(msg)
-        if reply:
-            await sw.post(msg.room_id, reply)
+        # A list is several chat messages in order: an @-mention only reaches
+        # another agent when it opens its own message.
+        for part in ([reply] if isinstance(reply, str) else reply or []):
+            if part:
+                await sw.post(msg.room_id, part)
 
     async def post(self, room_id: str, text: str) -> None:
         await self.switch.post(room_id, text)
