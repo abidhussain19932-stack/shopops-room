@@ -132,6 +132,8 @@ def main() -> None:
         stop()
         sys.exit(f"setup_switch.py failed ({rc})")
     procs["agents"] = subprocess.Popen([py, "-m", "shopops"], env=env, cwd=ROOT)
+    # Best-effort helper: not in `procs`, so its failure never takes the service down.
+    subprocess.Popen([py, os.path.join(ROOT, "scripts", "auto_link_owner.py")], env=env, cwd=ROOT)
     while not stopping:
         for name, p in procs.items():
             if p.poll() is not None:
