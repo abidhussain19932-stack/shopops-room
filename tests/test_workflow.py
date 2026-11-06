@@ -130,3 +130,14 @@ def test_stock_without_sku_lists_everything(world, text):
     _, inv, _, _ = world
     out = run(inv.handle(msg(text)))
     assert out.startswith("Stock:") and "S201" in out
+
+
+def test_sales_sell_and_unknown_sku():
+    from shopops.agents.sales import SalesAgent
+    s = SalesAgent.__new__(SalesAgent)
+    s.store = Store(":memory:")
+    s.store.seed_catalog("data/catalog.json")
+    sku = s.store.products()[0]["sku"]
+    out = s.sell("Priya", f"{sku} x2")
+    assert out[1].startswith("@inventory-agent ORDER O1001")
+    assert "Unknown SKU" in s.sell("Priya", "Z999 x1")
