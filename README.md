@@ -4,7 +4,19 @@
 
 Built for the *Flip the Switch* hackathon (Best Business Workflow track), Nov 4–7, 2026.
 
-> Work in progress. Day 1 (Nov 4): Switch server, setup script, WebSocket agent client, three agents online. Domain workflows land Nov 5–6.
+**Live instance:** https://shopops-room.onrender.com (health: `/health`), Telegram bot @AMBshopOpsbot.
+
+## Architecture
+
+```
+Telegram group <-> Switch Telegram bridge <-> switch-core (Postgres/Neon)
+                                   | WebSocket (always_on)
+          sales-agent   inventory-agent   fulfillment-agent  (Groq gpt-oss-120b, deterministic fallback)
+                      \\      |       /
+                shared store (orders, stock, approvals)  ->  PayPal Sandbox refunds
+```
+
+Flow: `@sales-agent sell Priya: K101 x2` -> ORDER line -> inventory reserves stock, raises PO approval `A1` if low -> owner types `approve A1` -> fulfilment ships -> `refund O1001` raises an approval -> owner `approve A2` -> PayPal Sandbox refund. Agents can never approve; only the owner can.
 
 ## Who is in the room
 
